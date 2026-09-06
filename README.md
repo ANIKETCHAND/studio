@@ -1,4 +1,6 @@
-﻿# Studio Digi Mix — 3D Photography Studio Website
+# Studio Digi Mix — 3D Photography Studio Website
+
+**Live Website:** [https://studiodigimix.vercel.app](https://studiodigimix.vercel.app)
 
 A cinematic, interactive 3D website built for **Studio Digi Mix** (Maligaon, Guwahati, Assam). Features interactive Three.js light-field particle animations, background camera exploded-view video, editorial typography, services showcase, portfolio galleries, and inquiry contact form.
 
