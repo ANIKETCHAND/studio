@@ -33,123 +33,142 @@ function LightField() {
     const mount = mountRef.current;
     if (!mount) return;
 
-    const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(48, 1, 0.1, 100);
-    camera.position.z = 7.2;
+    let renderer: THREE.WebGLRenderer | null = null;
+    let frame = 0;
+    let onPointerMove: ((e: PointerEvent) => void) | null = null;
+    let resize: (() => void) | null = null;
+    let particleGeometry: THREE.BufferGeometry | null = null;
+    let particleMaterial: THREE.PointsMaterial | null = null;
+    let ring: THREE.Mesh | null = null;
+    let ringMaterial: THREE.MeshBasicMaterial | null = null;
+    let innerRing: THREE.Mesh | null = null;
+    let orb: THREE.Mesh | null = null;
 
-    const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    renderer.setClearColor(0x000000, 0);
-    mount.appendChild(renderer.domElement);
+    try {
+      const scene = new THREE.Scene();
+      const camera = new THREE.PerspectiveCamera(48, 1, 0.1, 100);
+      camera.position.z = 7.2;
 
-    const group = new THREE.Group();
-    scene.add(group);
+      renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true, powerPreference: "default" });
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+      renderer.setClearColor(0x000000, 0);
+      mount.appendChild(renderer.domElement);
 
-    const points = 720;
-    const positions = new Float32Array(points * 3);
-    const colors = new Float32Array(points * 3);
-    const amber = new THREE.Color("#f7ad55");
-    const cream = new THREE.Color("#fff2ce");
-    const lavender = new THREE.Color("#b6a4ff");
+      const group = new THREE.Group();
+      scene.add(group);
 
-    for (let i = 0; i < points; i += 1) {
-      const radius = 1.7 + Math.random() * 2.3;
-      const angle = Math.random() * Math.PI * 2;
-      const y = (Math.random() - 0.5) * 3.4;
-      positions[i * 3] = Math.cos(angle) * radius;
-      positions[i * 3 + 1] = y;
-      positions[i * 3 + 2] = Math.sin(angle) * radius * 0.52;
-      const color = i % 8 === 0 ? lavender : i % 3 === 0 ? cream : amber;
-      colors[i * 3] = color.r;
-      colors[i * 3 + 1] = color.g;
-      colors[i * 3 + 2] = color.b;
+      const points = 720;
+      const positions = new Float32Array(points * 3);
+      const colors = new Float32Array(points * 3);
+      const amber = new THREE.Color("#f7ad55");
+      const cream = new THREE.Color("#fff2ce");
+      const lavender = new THREE.Color("#b6a4ff");
+
+      for (let i = 0; i < points; i += 1) {
+        const radius = 1.7 + Math.random() * 2.3;
+        const angle = Math.random() * Math.PI * 2;
+        const y = (Math.random() - 0.5) * 3.4;
+        positions[i * 3] = Math.cos(angle) * radius;
+        positions[i * 3 + 1] = y;
+        positions[i * 3 + 2] = Math.sin(angle) * radius * 0.52;
+        const color = i % 8 === 0 ? lavender : i % 3 === 0 ? cream : amber;
+        colors[i * 3] = color.r;
+        colors[i * 3 + 1] = color.g;
+        colors[i * 3 + 2] = color.b;
+      }
+
+      particleGeometry = new THREE.BufferGeometry();
+      particleGeometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+      particleGeometry.setAttribute("color", new THREE.BufferAttribute(colors, 3));
+      particleMaterial = new THREE.PointsMaterial({
+        size: 0.034,
+        vertexColors: true,
+        transparent: true,
+        opacity: 0.7,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+      });
+      const particles = new THREE.Points(particleGeometry, particleMaterial);
+      group.add(particles);
+
+      ringMaterial = new THREE.MeshBasicMaterial({
+        color: 0xf4ae5b,
+        transparent: true,
+        opacity: 0.24,
+        wireframe: true,
+        blending: THREE.AdditiveBlending,
+      });
+      ring = new THREE.Mesh(new THREE.TorusGeometry(1.78, 0.009, 8, 96), ringMaterial);
+      ring.rotation.x = 1.08;
+      ring.rotation.y = 0.4;
+      group.add(ring);
+
+      innerRing = new THREE.Mesh(
+        new THREE.TorusGeometry(1.12, 0.006, 8, 96),
+        new THREE.MeshBasicMaterial({ color: 0xb9a4ff, transparent: true, opacity: 0.38, wireframe: true }),
+      );
+      innerRing.rotation.x = -0.44;
+      innerRing.rotation.z = 0.42;
+      group.add(innerRing);
+
+      orb = new THREE.Mesh(
+        new THREE.IcosahedronGeometry(0.22, 2),
+        new THREE.MeshBasicMaterial({ color: 0xffe4a8, transparent: true, opacity: 0.95 }),
+      );
+      group.add(orb);
+
+      const pointer = { x: 0, y: 0 };
+      onPointerMove = (event: PointerEvent) => {
+        pointer.x = (event.clientX / (window.innerWidth || 1) - 0.5) * 0.7;
+        pointer.y = (event.clientY / (window.innerHeight || 1) - 0.5) * 0.35;
+      };
+      window.addEventListener("pointermove", onPointerMove, { passive: true });
+
+      resize = () => {
+        if (!mount || !renderer) return;
+        const width = mount.clientWidth || 1;
+        const height = mount.clientHeight || 1;
+        renderer.setSize(width, height, false);
+        camera.aspect = width / height;
+        camera.updateProjectionMatrix();
+      };
+      resize();
+      window.addEventListener("resize", resize);
+
+      const clock = new THREE.Clock();
+      const animate = () => {
+        const elapsed = clock.getElapsedTime();
+        group.rotation.y += 0.0019;
+        group.rotation.x = THREE.MathUtils.lerp(group.rotation.x, pointer.y * 0.22, 0.025);
+        group.position.x = THREE.MathUtils.lerp(group.position.x, pointer.x * 0.34, 0.025);
+        particles.rotation.z = elapsed * 0.025;
+        if (ring) ring.rotation.z += 0.0023;
+        if (innerRing) innerRing.rotation.y -= 0.003;
+        if (orb) orb.position.y = Math.sin(elapsed * 1.3) * 0.08;
+        if (renderer) renderer.render(scene, camera);
+        frame = requestAnimationFrame(animate);
+      };
+      animate();
+    } catch (err) {
+      console.warn("WebGL not supported or failed to initialize on this device:", err);
     }
 
-    const particleGeometry = new THREE.BufferGeometry();
-    particleGeometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
-    particleGeometry.setAttribute("color", new THREE.BufferAttribute(colors, 3));
-    const particleMaterial = new THREE.PointsMaterial({
-      size: 0.034,
-      vertexColors: true,
-      transparent: true,
-      opacity: 0.7,
-      blending: THREE.AdditiveBlending,
-      depthWrite: false,
-    });
-    const particles = new THREE.Points(particleGeometry, particleMaterial);
-    group.add(particles);
-
-    const ringMaterial = new THREE.MeshBasicMaterial({
-      color: 0xf4ae5b,
-      transparent: true,
-      opacity: 0.24,
-      wireframe: true,
-      blending: THREE.AdditiveBlending,
-    });
-    const ring = new THREE.Mesh(new THREE.TorusGeometry(1.78, 0.009, 8, 96), ringMaterial);
-    ring.rotation.x = 1.08;
-    ring.rotation.y = 0.4;
-    group.add(ring);
-
-    const innerRing = new THREE.Mesh(
-      new THREE.TorusGeometry(1.12, 0.006, 8, 96),
-      new THREE.MeshBasicMaterial({ color: 0xb9a4ff, transparent: true, opacity: 0.38, wireframe: true }),
-    );
-    innerRing.rotation.x = -0.44;
-    innerRing.rotation.z = 0.42;
-    group.add(innerRing);
-
-    const orb = new THREE.Mesh(
-      new THREE.IcosahedronGeometry(0.22, 2),
-      new THREE.MeshBasicMaterial({ color: 0xffe4a8, transparent: true, opacity: 0.95 }),
-    );
-    group.add(orb);
-
-    const pointer = { x: 0, y: 0 };
-    const onPointerMove = (event: PointerEvent) => {
-      pointer.x = (event.clientX / window.innerWidth - 0.5) * 0.7;
-      pointer.y = (event.clientY / window.innerHeight - 0.5) * 0.35;
-    };
-    window.addEventListener("pointermove", onPointerMove, { passive: true });
-
-    const resize = () => {
-      const width = mount.clientWidth || 1;
-      const height = mount.clientHeight || 1;
-      renderer.setSize(width, height, false);
-      camera.aspect = width / height;
-      camera.updateProjectionMatrix();
-    };
-    resize();
-    window.addEventListener("resize", resize);
-
-    let frame = 0;
-    const clock = new THREE.Clock();
-    const animate = () => {
-      const elapsed = clock.getElapsedTime();
-      group.rotation.y += 0.0019;
-      group.rotation.x = THREE.MathUtils.lerp(group.rotation.x, pointer.y * 0.22, 0.025);
-      group.position.x = THREE.MathUtils.lerp(group.position.x, pointer.x * 0.34, 0.025);
-      particles.rotation.z = elapsed * 0.025;
-      ring.rotation.z += 0.0023;
-      innerRing.rotation.y -= 0.003;
-      orb.position.y = Math.sin(elapsed * 1.3) * 0.08;
-      renderer.render(scene, camera);
-      frame = requestAnimationFrame(animate);
-    };
-    animate();
-
     return () => {
-      cancelAnimationFrame(frame);
-      window.removeEventListener("resize", resize);
-      window.removeEventListener("pointermove", onPointerMove);
-      particleGeometry.dispose();
-      particleMaterial.dispose();
-      ring.geometry.dispose();
-      ringMaterial.dispose();
-      innerRing.geometry.dispose();
-      orb.geometry.dispose();
-      mount.removeChild(renderer.domElement);
-      renderer.dispose();
+      if (frame) cancelAnimationFrame(frame);
+      if (resize) window.removeEventListener("resize", resize);
+      if (onPointerMove) window.removeEventListener("pointermove", onPointerMove);
+      if (particleGeometry) particleGeometry.dispose();
+      if (particleMaterial) particleMaterial.dispose();
+      if (ring) ring.geometry.dispose();
+      if (ringMaterial) ringMaterial.dispose();
+      if (innerRing) innerRing.geometry.dispose();
+      if (orb) orb.geometry.dispose();
+      if (renderer) {
+        if (renderer.domElement && mount && mount.contains(renderer.domElement)) {
+          mount.removeChild(renderer.domElement);
+        }
+        renderer.dispose();
+      }
     };
   }, []);
 
@@ -168,6 +187,18 @@ function SectionLabel({ children }: { children: string }) {
 function Home() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    if (videoRef.current) {
+      videoRef.current.defaultMuted = true;
+      videoRef.current.muted = true;
+      const p = videoRef.current.play();
+      if (p !== undefined) {
+        p.catch(() => {});
+      }
+    }
+  }, []);
 
   const scrollTo = (id: string) => {
     document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
@@ -202,6 +233,7 @@ function Home() {
 
       <section className="hero" id="top">
         <video
+          ref={videoRef}
           className="hero-video"
           autoPlay
           muted
