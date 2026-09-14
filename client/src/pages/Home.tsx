@@ -243,7 +243,7 @@ function Home() {
           poster={images.hero}
           aria-label="Cinematic exploded-view animation of a professional camera"
         >
-          <source src="/manus-storage/create_the_video_50fe6fd4.mp4" type="video/mp4" />
+          <source src="/manus-storage/make_the_video_e55b7fd1.mp4" type="video/mp4" />
         </video>
         <div className="hero-video-label"><span className="live-dot" /> The craft behind the frame</div>
         <div className="hero-vignette" />
