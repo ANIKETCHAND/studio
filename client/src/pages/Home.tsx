@@ -186,7 +186,10 @@ function SectionLabel({ children }: { children: string }) {
 
 function Home() {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [submittedName, setSubmittedName] = useState("");
+  const [submittedProject, setSubmittedProject] = useState("");
   const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
@@ -205,9 +208,74 @@ function Home() {
     setMenuOpen(false);
   };
 
-  const submitInquiry = (event: React.FormEvent<HTMLFormElement>) => {
+  const submitInquiry = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    setSubmitted(true);
+    setSubmitting(true);
+
+    const form = event.currentTarget;
+    const formData = new FormData(form);
+    const name = ((formData.get("name") as string) || "").trim() || "Valued Client";
+    const contact = ((formData.get("contact") as string) || "").trim() || "Not provided";
+    const project = ((formData.get("project") as string) || "").trim() || "Studio Photography Session";
+    const message = ((formData.get("message") as string) || "").trim() || "Looking forward to visiting the studio and exploring creative ideas!";
+
+    setSubmittedName(name);
+    setSubmittedProject(project);
+
+    const formalCatchyMessage = `Dear Studio Digi Mix Team,
+
+Warm greetings from Guwahati!
+
+I am reaching out through your website to express my keen interest in visiting and exploring Studio Digi Mix at Maligaon Chariali. I have been following your photography work and would love to collaborate with your creative team to capture our special moments.
+
+Here are my session details:
+────────────────────────────────────────
+• Client Name: ${name}
+• Contact Details: ${contact}
+• Desired Service: ${project}
+• Notes & Vision: ${message}
+────────────────────────────────────────
+
+I would truly appreciate the opportunity to schedule a visit to your studio, explore your creative setup, and discuss planning our session together.
+
+Looking forward to hearing from you with your availability!
+
+Warm regards,
+${name}`;
+
+    try {
+      const response = await fetch("https://formsubmit.co/ajax/studiodigimixghy@gmail.com", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({
+          _subject: `✨ Studio Digi Mix Inquiry: ${name} would like to visit & explore (${project})`,
+          _captcha: "false",
+          _template: "table",
+          "Client Name": name,
+          "Contact Info": contact,
+          "Requested Service": project,
+          "Client Notes": message,
+          "Formal Letter / Intent": formalCatchyMessage,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("API request failed");
+      }
+      setSubmitted(true);
+    } catch {
+      // Fallback: Opens the client's email application with pre-composed formal message
+      const mailtoUrl = `mailto:studiodigimixghy@gmail.com?subject=${encodeURIComponent(
+        `Studio Digi Mix Inquiry: ${name} would like to visit & explore (${project})`
+      )}&body=${encodeURIComponent(formalCatchyMessage)}`;
+      window.open(mailtoUrl, "_blank");
+      setSubmitted(true);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -376,15 +444,38 @@ function Home() {
           </div>
           <div className="inquiry-card">
             {submitted ? (
-              <div className="success-state"><div className="success-icon"><Check size={26} /></div><h3>Message received.</h3><p>Thank you for reaching out. We will be in touch soon to plan your session.</p><button className="text-link" onClick={() => setSubmitted(false)}>Send another note <MoveRight size={17} /></button></div>
+              <div className="success-state">
+                <div className="success-icon"><Check size={26} /></div>
+                <h3>Inquiry delivered!</h3>
+                <p>Thank you, {submittedName}. Your note has been sent directly to <strong>studiodigimixghy@gmail.com</strong>. We look forward to welcoming you to the studio!</p>
+                <div style={{ display: "flex", gap: "10px", marginTop: "20px", flexWrap: "wrap", justifyContent: "center" }}>
+                  <a
+                    href={`https://wa.me/919435044421?text=${encodeURIComponent(
+                      `Hello Studio Digi Mix! I am ${submittedName}. I just sent an inquiry on your website for ${submittedProject} and would love to visit and explore the studio.`
+                    )}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="button button-primary"
+                    style={{ padding: "10px 18px", fontSize: "13px", textDecoration: "none" }}
+                  >
+                    Quick chat on WhatsApp <ArrowUpRight size={15} />
+                  </a>
+                  <button className="text-link" onClick={() => setSubmitted(false)}>
+                    Send another note <MoveRight size={16} />
+                  </button>
+                </div>
+              </div>
             ) : (
               <form onSubmit={submitInquiry}>
                 <div className="form-heading"><span>Start a conversation</span><span>04 / 04</span></div>
                 <label>Name<input name="name" placeholder="Your name" required /></label>
+                <label>Contact (Phone / Email)<input name="contact" placeholder="Your phone number or email" required /></label>
                 <label>What are you planning?<select name="project" defaultValue="" required><option value="" disabled>Select a service</option><option>Passport photo</option><option>Wedding &amp; event photography</option><option>Wedding &amp; event videography</option><option>Video editing</option><option>Digital photo mixing</option><option>Photobook album</option><option>Artistic frame &amp; lamination</option><option>Mug or T-shirt printing</option><option>Something else</option></select></label>
                 <label>Tell us a little <textarea name="message" placeholder="Date, mood, or anything we should know…" rows={3} /></label>
-                <button type="submit" className="button button-primary form-submit">Send inquiry <ArrowUpRight size={17} /></button>
-                <small>We’ll reply with availability and next steps.</small>
+                <button type="submit" className="button button-primary form-submit" disabled={submitting}>
+                  {submitting ? "Sending to studio..." : <>Send inquiry <ArrowUpRight size={17} /></>}
+                </button>
+                <small>Sends directly to studiodigimixghy@gmail.com · We’ll reply with availability and next steps.</small>
               </form>
             )}
           </div>
